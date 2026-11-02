@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="theme-color" content="#080e18">
+<title>NERV Live | Echo Show 5</title>
+<style>
+*{box-sizing:border-box}html,body{height:100%;margin:0;background:#080e18;color:#f3f5fb;font-family:system-ui,sans-serif;overflow:hidden}
+.app{height:100vh;display:flex;flex-direction:column}
+header,footer{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:5px 9px;background:#121c2b}
+header{min-height:31px}header strong{font-size:13px}#status{font-size:11px;color:#c3cedc;text-align:right}
+main{position:relative;flex:1;min-height:0;background:#000}
+#player{height:100%;width:100%}
+#startScreen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#080e18;padding:20px;text-align:center}
+#startScreen p{font-size:12px;line-height:1.5;color:#bdc7d4;margin:0}
+button,a{border:1px solid #718199;border-radius:8px;padding:7px 12px;background:#1a2e47;color:white;font-weight:bold;font-size:12px;text-decoration:none}
+footer{justify-content:center;min-height:43px}
+</style>
+<!-- Keep Silk Open (MIT), by DaGammla: https://gitlab.com/DaGammla/keep-silk-open -->
+<script defer src="https://dagammla.gitlab.io/keep-silk-open/keep.js"></script>
+</head>
+<body>
+<div class="app">
+<header><strong>NERV 防災ライブ</strong><span id="status">開始待ち</span></header>
+<main><div id="player"></div><div id="startScreen">
+<button id="start">▶ ライブを開始</button>
+<p>Echo Show 5のSilkブラウザで開いて、ここを1回タップしてね。<br>ブラウザの強制終了や端末再起動からの自動復帰はできません。</p>
+</div></main>
+<footer><button id="reload">↻ 再接続</button><a href="https://www.youtube.com/watch?v=mWjknHiYb24" target="_blank" rel="noopener noreferrer">YouTubeで開く</a></footer>
+</div>
+<script>
+(function(){
+'use strict';
+var ID='mWjknHiYb24',player=null,started=false,blocked=false,lastChanged=Date.now(),s=document.getElementById('status');
+function status(v){s.textContent=v}
+function reload(){
+ if(!started){start();return}
+ if(!player||!player.loadVideoById){status('プレーヤーを準備中');return}
+ try{status('再接続中');player.loadVideoById(ID);player.playVideo();lastChanged=Date.now()}catch(e){status('再接続に失敗。画面を更新してね')}
+}
+function createPlayer(){
+ if(!started||player||!window.YT||!YT.Player)return;
+ status('ライブに接続中');
+ player=new YT.Player('player',{videoId:ID,playerVars:{autoplay:1,playsinline:1,controls:1,rel:0},events:{
+ onReady:function(e){try{e.target.playVideo()}catch(err){}},
+ onStateChange:function(e){
+  lastChanged=Date.now();
+  if(e.data===YT.PlayerState.PLAYING)status('ライブ再生中');
+  else if(e.data===YT.PlayerState.BUFFERING)status('読み込み中');
+  else if(e.data===YT.PlayerState.PAUSED)status('一時停止中');
+  else if(e.data===YT.PlayerState.ENDED){status('再接続中');setTimeout(reload,5000)}
+ },
+ onError:function(e){
+  blocked=(e.data===101||e.data===150||e.data===153);
+  status(blocked?'埋め込み不可。YouTubeで開いてね':'再生エラー '+e.data);
+  if(!blocked)setTimeout(reload,12000)
+ },
+ onAutoplayBlocked:function(){status('動画をタップして再生してね')}
+ }});
+}
+function start(){started=true;document.getElementById('startScreen').style.display='none';createPlayer()}
+window.onYouTubeIframeAPIReady=createPlayer;
+document.getElementById('start').addEventListener('click',start);
+document.getElementById('reload').addEventListener('click',reload);
+setInterval(function(){
+ if(!started||!player||blocked||!window.YT||!YT.PlayerState)return;
+ var state;try{state=player.getPlayerState()}catch(e){return}
+ var elapsed=Date.now()-lastChanged;
+ if((state===YT.PlayerState.PAUSED&&elapsed>50000)||
+ (state===YT.PlayerState.BUFFERING&&elapsed>130000)||
+ (state===YT.PlayerState.ENDED&&elapsed>20000)){lastChanged=Date.now();reload()}
+},15000);
+var tag=document.createElement('script');tag.src='https://www.youtube.com/iframe_api';document.head.appendChild(tag);
+setTimeout(function(){if(!window.YT||!YT.Player)status('YouTube APIを読み込めません')},20000);
+})();
+</script>
+</body>
+</html>
